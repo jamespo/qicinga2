@@ -43,7 +43,7 @@ def get_page(ic_url, user, pw, hostname=None, verify_ssl=True):   # TODO: ignore
     passman = HTTPPasswordMgrWithDefaultRealm()
     passman.add_password(None, ic_url, user, pw)
     opener = build_opener(HTTPBasicAuthHandler(passman))
-    opener.addheaders = [('User-agent', 'qicinga2'),('Accept', 'application/json'),
+    opener.addheaders = [('User-agent', 'qicinga2'), ('Accept', 'application/json'),
                          ('X-HTTP-Method-Override', 'GET')]
     postdata = '{ "attrs": [ "__name", "last_check_result" ] }'
     if not verify_ssl:
@@ -82,7 +82,7 @@ def parse_checks(icinga_status, options):
 def status2str(status):
     '''icinga2 status to string'''
     # TODO: add warning critical etc
-    stat2str = ('OK',)
+    stat2str = ('OK', 'WARNING', 'CRITICAL', 'UNKNOWN')
     return stat2str[int(status)]
 
 
@@ -140,7 +140,9 @@ def readconf():
     config.read(['/etc/qicinga2', os.path.expanduser('~/.config/.qicinga2')])
     return (config.get('Main', 'icinga_url'), config.get('Main', 'username'),
             config.get('Main', 'password'),
-            config.getboolean('Main', 'colour') if config.has_option('Main', 'colour') else False)
+            config.getboolean('Main', 'colour') if config.has_option('Main', 'colour') else False,
+            config.getboolean('Main', 'verify_ssl')
+            if config.has_option('Main', 'verify_ssl') else True)
 
 
 def get_options(colour):
@@ -170,10 +172,10 @@ def get_options(colour):
 
 def main():
     logger.setLevel(logging.INFO)
-    (icinga_url, username, password, colour) = readconf()
+    (icinga_url, username, password, colour, verify_ssl) = readconf()
     options = get_options(colour)
     # TODO: don't verify ssl for now
-    data = get_page(icinga_url, username, password, options.hostname, False)
+    data = get_page(icinga_url, username, password, options.hostname, verify_ssl)
     icinga_status = read_json(data)
     logger.debug(pprint.pformat(icinga_status))
     rc = parse_checks(icinga_status, options)
