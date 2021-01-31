@@ -3,6 +3,11 @@ qicinga2
 
 Short script to display Icinga 2 status on the commandline
 
+Installation
+------------
+
+    python3 setup.py install
+
 Usage
 -----
 
@@ -12,6 +17,7 @@ Create a config file in either /etc/qicinga or ~/.config/.qicinga with contents 
     icinga_url: https://icinga.example.com/icinga/
     username: myicingauser
     password: mypass
+	verify_ssl: off
 
 As this file contains your password ENSURE it is permissioned correctly (ie chmod 0600).
 Additionally as this is just a reporting script it should be a read-only user.
