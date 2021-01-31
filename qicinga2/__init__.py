@@ -4,8 +4,6 @@
 # (C) James Powell jamespo [at] gmail [dot] com 2021
 # This software is licensed under the same terms as Python itself
 
-from __future__ import print_function
-
 # from urlparse import urlparse
 from urllib.request import urlopen, Request, HTTPPasswordMgrWithDefaultRealm, \
         build_opener, HTTPBasicAuthHandler
@@ -13,6 +11,7 @@ from urllib.error import HTTPError
 import configparser as ConfigParser
 import io
 import os.path
+from datetime import datetime
 from optparse import OptionParser
 from collections import defaultdict
 import logging
@@ -51,26 +50,23 @@ def get_page(ic_url, user, pw, hostname=None, verify_ssl=True):   # TODO: ignore
         ssl._create_default_https_context = ssl._create_unverified_context
     req = opener.open(url, postdata.encode("utf-8"))
     data = req.read()
-
-    print(data.decode("utf-8"))
-    sys.exit(1)
     return data
 
 
 def read_json(icinga_json):
     '''parse json into data structure'''
-    icinga_status = json.loads(icinga_json.decode().replace('\t', ' '))  # cleanup output
+    icinga_status = json.loads(icinga_json.decode())
     return icinga_status
 
 
-def checktime(last_checktime):
+def cleanuptime(last_checktime):
     '''strip date from last check time if it's today'''
     # if check is not made yet will return N/A
     if ' ' not in last_checktime:
         return last_checktime
-    # assumes date in MM-DD-YYYY
+    # assumes date in DD-MM-YYYY
     (checkdate, checktime) = last_checktime.split(' ')
-    if time.strftime("%m-%d-%Y") == checkdate:
+    if time.strftime("%d-%m-%Y") == checkdate:
         return checktime
     else:
         return last_checktime
@@ -83,22 +79,35 @@ def parse_checks(icinga_status, options):
     return rc
 
 
+def status2str(status):
+    '''icinga2 status to string'''
+    # TODO: add warning critical etc
+    stat2str = ('OK',)
+    return stat2str[int(status)]
+
+
 def parse_checks_individual(icinga_status, options):
-    '''print results of individual checks'''
+    '''loop round & count status & optionally print results of individual checks'''
     rc = 0
     summ = defaultdict(lambda: 0)
     # print individual check status
-    for svc in icinga_status['status']['service_status']:
-        status = svc['status']
+    for svc in icinga_status['results']:
+        svc_attrs = svc['attrs']
+        status = status2str(svc_attrs['last_check_result']['state'])
         summ[status] += 1
         if status != 'OK' or options.showall is True:
-            if status != 'OK': rc = 1
-            if options.colour: status = colmap[status] + status + colmap['NORM']
+            if status != 'OK':
+                rc = 1
+            if options.colour:
+                status = colmap[status] + status + colmap['NORM']
             if not options.quiet:
-                rstr = "[%s]: %s - %s (%s)" % (status, svc['host_display_name'],
-                                               svc['service_description'], svc['status_information'])
+                name, desc = svc_attrs['__name'].split('!')
+                rstr = "[%s]: %s - %s (%s)" % (status, name, desc,
+                                               svc_attrs['last_check_result']['output'])
                 if options.showtime:
-                    rstr += " - %s" % checktime(svc['last_check'])
+                    lastcheck = int(svc_attrs['last_check_result']['execution_end'])
+                    lastcheck_str = cleanuptime(datetime.utcfromtimestamp(lastcheck).strftime('%d-%m-%Y %H:%M'))
+                    rstr += " - %s" % lastcheck_str
                 print(rstr)
     return rc, summ
 
