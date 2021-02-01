@@ -7,6 +7,8 @@ Installation
 ------------
 
     python3 setup.py install
+    
+    pip install git+https://github.com/jamespo/qicinga2.git
 
 Usage
 -----
