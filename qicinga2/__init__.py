@@ -6,7 +6,7 @@
 
 # from urlparse import urlparse
 from urllib.request import urlopen, Request, HTTPPasswordMgrWithDefaultRealm, \
-        build_opener, HTTPBasicAuthHandler
+        build_opener, HTTPBasicAuthHandler, install_opener
 from urllib.error import HTTPError
 import configparser as ConfigParser
 import io
@@ -35,7 +35,7 @@ colmap = {      # shell escape codes
 }
 
 
-def get_page(ic_url, user, pw, hostname=None, verify_ssl=True):   # TODO: ignore hostname for now
+def get_page(ic_url, user, pw, hostname, verify_ssl, cafile):   # TODO: ignore hostname for now
     '''reads icinga service status page from API and returns json'''
     url = ic_url + 'v1/objects/services'
     logger.debug('url: ' + url)
@@ -43,12 +43,18 @@ def get_page(ic_url, user, pw, hostname=None, verify_ssl=True):   # TODO: ignore
     passman = HTTPPasswordMgrWithDefaultRealm()
     passman.add_password(None, ic_url, user, pw)
     opener = build_opener(HTTPBasicAuthHandler(passman))
+    install_opener(opener)
     opener.addheaders = [('User-agent', 'qicinga2'), ('Accept', 'application/json'),
                          ('X-HTTP-Method-Override', 'GET')]
     postdata = '{ "attrs": [ "__name", "last_check_result" ] }'
-    if not verify_ssl:
-        ssl._create_default_https_context = ssl._create_unverified_context
-    req = opener.open(url, postdata.encode("utf-8"))
+    # setup TLS trust
+    if cafile != '':
+        cafile = os.path.expanduser(cafile)
+        req = urlopen(url, postdata.encode("utf-8"), cafile=cafile)
+    else:
+        if not verify_ssl:
+            ssl._create_default_https_context = ssl._create_unverified_context
+        req = urlopen(url, postdata.encode("utf-8"))
     data = req.read()
     return data
 
@@ -137,12 +143,13 @@ def parse_checks_summary(summ, options):
 def readconf():
     '''read config file'''
     config = ConfigParser.ConfigParser()
+    config['Main'] = {'cafile': '',
+                      'verify_ssl': 'True',
+                      'colour': 'False'}
     config.read(['/etc/qicinga2', os.path.expanduser('~/.config/.qicinga2')])
     return (config.get('Main', 'icinga_url'), config.get('Main', 'username'),
-            config.get('Main', 'password'),
-            config.getboolean('Main', 'colour') if config.has_option('Main', 'colour') else False,
-            config.getboolean('Main', 'verify_ssl')
-            if config.has_option('Main', 'verify_ssl') else True)
+            config.get('Main', 'password'), config.getboolean('Main', 'colour'),
+            config.getboolean('Main', 'verify_ssl'), config.get('Main', 'cafile'))
 
 
 def get_options(colour):
@@ -172,10 +179,10 @@ def get_options(colour):
 
 def main():
     logger.setLevel(logging.INFO)
-    (icinga_url, username, password, colour, verify_ssl) = readconf()
+    (icinga_url, username, password, colour, verify_ssl, cafile) = readconf()
     options = get_options(colour)
     # TODO: don't verify ssl for now
-    data = get_page(icinga_url, username, password, options.hostname, verify_ssl)
+    data = get_page(icinga_url, username, password, options.hostname, verify_ssl, cafile)
     icinga_status = read_json(data)
     logger.debug(pprint.pformat(icinga_status))
     rc = parse_checks(icinga_status, options)
