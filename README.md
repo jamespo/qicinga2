@@ -18,13 +18,14 @@ Configuration
 Create a config file in either /etc/qicinga or ~/.config/.qicinga with contents as below
 
     [Main]
-    icinga_url: https://icinga.example.com/icinga/
+    icinga_url: https://icinga.example.com:5665/
     username: myicingauser
     password: mypass
 	verify_ssl: on
 	cafile: ~/.config/icinga2.crt
 
 - As this file contains your password ENSURE it is permissioned correctly (ie chmod 0600).
+- The icinga_url is for the Icinga2 API
 - Specifying a cafile and disabling verify_ssl is of course quite pointless.
 - Best practise as this is just a reporting script it should be a read-only user.
 
