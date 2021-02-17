@@ -15,7 +15,7 @@ or
 Configuration
 -------------
 
-Create a config file in either /etc/qicinga or ~/.config/.qicinga with contents as below
+Create a config file in either /etc/qicinga2 or ~/.config/.qicinga2 with contents as below
 
     [Main]
     icinga_url: https://icinga.example.com:5665/
