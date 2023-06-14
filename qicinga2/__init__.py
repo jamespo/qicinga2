@@ -106,10 +106,14 @@ def parse_checks_individual(icinga_status, options):
                 rc = 1
             if options.colour:
                 status = colmap[status] + status + colmap['NORM']
-            if not options.quiet:
+            if not options.quiet:                
                 name, desc = svc_attrs['__name'].split('!')
-                rstr = "[%s]: %s - %s (%s)" % (status, name, desc,
-                                               svc_attrs['last_check_result']['output'])
+                # clean up check_output
+                check_output = svc_attrs['last_check_result']['output']
+                check_output = check_output.replace('\n', ' ')
+                if options.truncate:
+                    check_output = check_output[:80]
+                rstr = "[%s]: %s - %s (%s)" % (status, name, desc, check_output)                                 
                 if options.showtime:
                     lastcheck = int(svc_attrs['last_check_result']['execution_end'])
                     lastcheck_str = cleanuptime(datetime.utcfromtimestamp(lastcheck).strftime('%d-%m-%Y %H:%M'))
@@ -165,6 +169,8 @@ def get_options(colour):
                       action="store_true", dest="colour", default=colour)
     parser.add_option("-b", help="no colour output",
                       action="store_false", dest="colour")
+    parser.add_option("-d", help="truncate output",
+                      action="store_true", dest="truncate")
     parser.add_option("-q", help="quiet - no output, no summary, just return code",
                       action="store_true", dest="quiet", default=False)
     parser.add_option("-x", help="hostname - AUTOSHORT / AUTOLONG",
