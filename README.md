@@ -31,14 +31,15 @@ Create a config file in either /etc/qicinga2 or ~/.config/.qicinga2 with content
 
 Command line options:
 
-	-h, --help   show this help message and exit
-	-a, --all    show all statuses
-	-s           short summary
-	-c           colour output
-	-b           no colour output
-	-q           quiet - no output, no summary, just return code
-	-x HOSTNAME  hostname - AUTOSHORT / AUTOLONG   NOT IMPLEMENTED YET
-		  
+	  -h, --help   show this help message and exit
+	  -a, --all    show all statuses
+	  -s           short summary
+	  -t           show time of last check
+	  -c           colour output
+	  -b           no colour output
+	  -d           truncate output
+	  -q           quiet - no output, no summary, just return code
+	  -x HOSTNAME  hostname - AUTOSHORT / AUTOLONG
 
 The colour output option works best on black background terminals.
 
