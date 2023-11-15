@@ -193,7 +193,3 @@ def main():
     logger.debug(pprint.pformat(icinga_status))
     rc = parse_checks(icinga_status, options)
     sys.exit(rc)
-
-
-if __name__ == '__main__':
-    main()

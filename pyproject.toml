@@ -1,0 +1,30 @@
+[project]
+name = "qicinga2"
+description = "Commandline interface to Icinga Status"
+readme = "README.md"
+version = "0.1.1"
+license = {file = "LICENSE"}
+requires-python = ">=3.6"
+keywords = ['icinga', 'monitoring', 'commandline']
+authors = [{ name = "James Powell", email = "pydev@webscalability.com" }]
+classifiers = [
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",		
+]
+dependencies = []
+
+[project.urls]
+"Source Code" = "https://github.com/jamespo/qicinga2"
+"Bug Tracker" = "https://github.com/jamespo/qicinga2/issues"
+
+[project.scripts]
+qicinga2 = "qicinga2:main"
+
