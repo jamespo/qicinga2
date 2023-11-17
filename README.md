@@ -6,7 +6,7 @@ Short script to display Icinga 2 status on the commandline
 Installation
 ------------
 
-    python3 setup.py install
+    pip install .
     
 or    
     
@@ -24,10 +24,19 @@ Create a config file in either /etc/qicinga2 or ~/.config/.qicinga2 with content
 	verify_ssl: on
 	cafile: ~/.config/icinga2.crt
 
-- As this file contains your password ENSURE it is permissioned correctly (ie chmod 0600).
+- As this file contains a password ENSURE it is permissioned correctly (ie chmod 0600).
 - The icinga_url is for the Icinga2 API
-- Specifying a cafile and disabling verify_ssl is of course quite pointless.
+- Specifying a cafile and disabling verify_ssl is of course quite pointless (by default the API cert is self-signed though).
+- You can create multiple menu entries for multiple servers, Main is the default.
 - Best practise as this is just a reporting script it should be a read-only user.
+
+You can create a user specifically for this script in your Icinga api-users.conf as below:
+
+    object ApiUser "qicinga" {
+        password = "bimbamboomtishtosh"
+        permissions = [ "objects/query/*", "status/query" ]
+    }
+
 
 Command line options:
 

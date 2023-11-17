@@ -5,11 +5,10 @@
 # This software is licensed under the same terms as Python itself
 
 # from urlparse import urlparse
-from urllib.request import urlopen, Request, HTTPPasswordMgrWithDefaultRealm, \
-        build_opener, HTTPBasicAuthHandler, install_opener
-from urllib.error import HTTPError
-import configparser as ConfigParser
-import io
+from urllib.request import urlopen, HTTPPasswordMgrWithDefaultRealm, \
+    build_opener, HTTPBasicAuthHandler, install_opener
+import urllib.error
+import configparser
 import os.path
 from datetime import datetime
 from optparse import OptionParser
@@ -26,12 +25,12 @@ logging.basicConfig()
 logger = logging.getLogger()
 
 colmap = {      # shell escape codes
-    'NORM'      : '\033[0m',
-    'CRITICAL'  : '\033[31;1m',
-    'WARNING'   : '\033[33;1m',
-    'OK'        : '\033[32;1m',
-    'UNKNOWN'   : '\033[35;1m',
-    'PENDING'   : '\033[36;1m'
+    'NORM': '\033[0m',
+    'CRITICAL': '\033[31;1m',
+    'WARNING': '\033[33;1m',
+    'OK': '\033[32;1m',
+    'UNKNOWN': '\033[35;1m',
+    'PENDING': '\033[36;1m'
 }
 
 
@@ -106,17 +105,20 @@ def parse_checks_individual(icinga_status, options):
                 rc = 1
             if options.colour:
                 status = colmap[status] + status + colmap['NORM']
-            if not options.quiet:                
+            if not options.quiet:
                 name, desc = svc_attrs['__name'].split('!')
                 # clean up check_output
                 check_output = svc_attrs['last_check_result']['output']
                 check_output = check_output.replace('\n', ' ')
                 if options.truncate:
                     check_output = check_output[:80]
-                rstr = "[%s]: %s - %s (%s)" % (status, name, desc, check_output)                                 
+                rstr = "[%s]: %s - %s (%s)" % (status,
+                                               name, desc, check_output)
                 if options.showtime:
-                    lastcheck = int(svc_attrs['last_check_result']['execution_end'])
-                    lastcheck_str = cleanuptime(datetime.utcfromtimestamp(lastcheck).strftime('%d-%m-%Y %H:%M'))
+                    lastcheck = int(
+                        svc_attrs['last_check_result']['execution_end'])
+                    lastcheck_str = cleanuptime(datetime.utcfromtimestamp(
+                        lastcheck).strftime('%d-%m-%Y %H:%M'))
                     rstr += " - %s" % lastcheck_str
                 print(rstr)
     return rc, summ
@@ -144,19 +146,18 @@ def parse_checks_summary(summ, options):
             print()
 
 
-def readconf():
+def readconf(iserver):
     '''read config file'''
-    config = ConfigParser.ConfigParser()
-    config['Main'] = {'cafile': '',
-                      'verify_ssl': 'True',
-                      'colour': 'False'}
+    config = configparser.ConfigParser()
+    config[iserver] = {'cafile': '',
+                       'verify_ssl': 'True'}
     config.read(['/etc/qicinga2', os.path.expanduser('~/.config/.qicinga2')])
-    return (config.get('Main', 'icinga_url'), config.get('Main', 'username'),
-            config.get('Main', 'password'), config.getboolean('Main', 'colour'),
-            config.getboolean('Main', 'verify_ssl'), config.get('Main', 'cafile'))
+    return (config.get(iserver, 'icinga_url'), config.get(iserver, 'username'),
+            config.get(iserver, 'password'),
+            config.getboolean(iserver, 'verify_ssl'), config.get(iserver, 'cafile'))
 
 
-def get_options(colour):
+def get_options():
     '''return CLI options'''
     parser = OptionParser()
     parser.add_option("-a", "--all", help="show all statuses",
@@ -165,17 +166,20 @@ def get_options(colour):
                       action="store_true", dest="shortsumm", default=False)
     parser.add_option("-t", help="show time of last check",
                       action="store_true", dest="showtime", default=False)
-    parser.add_option("-c", help="colour output",
-                      action="store_true", dest="colour", default=colour)
+    parser.add_option("-c", help="colour output", default=True,
+                      action="store_true", dest="colour")
     parser.add_option("-b", help="no colour output",
                       action="store_false", dest="colour")
     parser.add_option("-d", help="truncate output",
                       action="store_true", dest="truncate")
     parser.add_option("-q", help="quiet - no output, no summary, just return code",
                       action="store_true", dest="quiet", default=False)
+    # have multiple servers in conf & choose between them
+    parser.add_option("-i", help="icinga server (default: Main)",
+                      dest="iserver", default="Main")
     parser.add_option("-x", help="hostname - AUTOSHORT / AUTOLONG",
                       dest="hostname", default="all")
-    (options, args) = parser.parse_args()
+    options, _ = parser.parse_args()
     if options.hostname == 'AUTOSHORT':
         options.hostname = socket.gethostname()
     elif options.hostname == 'AUTOLONG':
@@ -183,13 +187,29 @@ def get_options(colour):
     return options
 
 
+def die(msg):
+    """quit with msg"""
+    print("ERROR: %s" % msg)
+    sys.exit(1)
+
+
 def main():
     logger.setLevel(logging.INFO)
-    (icinga_url, username, password, colour, verify_ssl, cafile) = readconf()
-    options = get_options(colour)
-    # TODO: don't verify ssl for now
-    data = get_page(icinga_url, username, password, options.hostname, verify_ssl, cafile)
-    icinga_status = read_json(data)
+    opts = get_options()
+    try:
+        icinga_url, username, password, verify_ssl, cafile = readconf(
+            opts.iserver)
+    except configparser.NoOptionError:
+        die("Unknown server %s not found in conf" % opts.iserver)
+    try:
+        data = get_page(icinga_url, username, password,
+                        opts.hostname, verify_ssl, cafile)
+    except urllib.error.URLError as e:
+        die(e)
+    try:
+        icinga_status = read_json(data)
+    except json.decoder.JSONDecodeError:
+        die("Bad data returned")
     logger.debug(pprint.pformat(icinga_status))
-    rc = parse_checks(icinga_status, options)
+    rc = parse_checks(icinga_status, opts)
     sys.exit(rc)
