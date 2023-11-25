@@ -19,7 +19,7 @@ Create a config file in either /etc/qicinga2 or ~/.config/.qicinga2 with content
 
     [Main]
     icinga_url: https://icinga.example.com:5665/
-    username: myicingauser
+    username: qicinga
     password: mypass
 	verify_ssl: on
 	cafile: ~/.config/icinga2.crt
@@ -48,6 +48,7 @@ Command line options:
 	  -b           no colour output
 	  -d           truncate output
 	  -q           quiet - no output, no summary, just return code
+	  -i ISERVER   icinga server (default: Main)
 	  -x HOSTNAME  hostname - AUTOSHORT / AUTOLONG
 
 The colour output option works best on black background terminals.
