@@ -5,8 +5,9 @@
 # This software is licensed under the same terms as Python itself
 
 # from urlparse import urlparse
-from urllib.request import urlopen, HTTPPasswordMgrWithDefaultRealm, \
-    build_opener, HTTPBasicAuthHandler, install_opener
+from urllib.request import HTTPPasswordMgrWithDefaultRealm, \
+    build_opener, HTTPBasicAuthHandler
+import certifi
 import urllib.error
 import configparser
 import os.path
@@ -34,7 +35,7 @@ colmap = {      # shell escape codes
 }
 
 
-def get_page(ic_url, user, pw, hostname, verify_ssl, cafile):   # TODO: ignore hostname for now
+def get_page(ic_url, user, pw, hostname, cafile):   # TODO: ignore hostname for now
     '''reads icinga service status page from API and returns json'''
     url = ic_url + 'v1/objects/services'
     logger.debug('url: ' + url)
@@ -42,19 +43,17 @@ def get_page(ic_url, user, pw, hostname, verify_ssl, cafile):   # TODO: ignore h
     passman = HTTPPasswordMgrWithDefaultRealm()
     passman.add_password(None, ic_url, user, pw)
     opener = build_opener(HTTPBasicAuthHandler(passman))
-    install_opener(opener)
     opener.addheaders = [('User-agent', 'qicinga2'), ('Accept', 'application/json'),
                          ('X-HTTP-Method-Override', 'GET')]
     postdata = '{ "attrs": [ "__name", "last_check_result" ] }'
     # setup TLS trust
     if cafile != '':
         cafile = os.path.expanduser(cafile)
-        req = urlopen(url, postdata.encode("utf-8"), cafile=cafile)
+        context = ssl.create_default_context(cafile=cafile)
     else:
-        if not verify_ssl:
-            ssl._create_default_https_context = ssl._create_unverified_context
-        req = urlopen(url, postdata.encode("utf-8"))
-    data = req.read()
+        context = ssl.create_default_context(cafile=certifi.where())
+    resp = opener.open(url, data=postdata.encode("utf-8"))
+    data = resp.read()
     return data
 
 
@@ -117,6 +116,7 @@ def parse_checks_individual(icinga_status, options):
                 if options.showtime:
                     lastcheck = int(
                         svc_attrs['last_check_result']['execution_end'])
+                    # TODO: `utcfromtimestamp` is deprecated
                     lastcheck_str = cleanuptime(datetime.utcfromtimestamp(
                         lastcheck).strftime('%d-%m-%Y %H:%M'))
                     rstr += " - %s" % lastcheck_str
@@ -149,12 +149,11 @@ def parse_checks_summary(summ, options):
 def readconf(iserver):
     '''read config file'''
     config = configparser.ConfigParser()
-    config[iserver] = {'cafile': '',
-                       'verify_ssl': 'True'}
+    config[iserver] = {'cafile': ''}
     config.read(['/etc/qicinga2', os.path.expanduser('~/.config/.qicinga2')])
     return (config.get(iserver, 'icinga_url'), config.get(iserver, 'username'),
             config.get(iserver, 'password'),
-            config.getboolean(iserver, 'verify_ssl'), config.get(iserver, 'cafile'))
+            config.get(iserver, 'cafile'))
 
 
 def get_options():
@@ -197,18 +196,18 @@ def main():
     logger.setLevel(logging.INFO)
     opts = get_options()
     try:
-        icinga_url, username, password, verify_ssl, cafile = readconf(
+        icinga_url, username, password, cafile = readconf(
             opts.iserver)
     except configparser.NoOptionError:
         die("Unknown server %s not found in conf" % opts.iserver)
     try:
         data = get_page(icinga_url, username, password,
-                        opts.hostname, verify_ssl, cafile)
+                        opts.hostname, cafile)
     except urllib.error.URLError as e:
         die(e)
     try:
         icinga_status = read_json(data)
-    except json.decoder.JSONDecodeError:
+    except json.JSONDecodeError:
         die("Bad data returned")
     logger.debug(pprint.pformat(icinga_status))
     rc = parse_checks(icinga_status, opts)
