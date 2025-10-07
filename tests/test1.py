@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import qicinga
+import qicinga2
 
 from unittest import TestCase
 
@@ -18,10 +18,10 @@ class TestQicinga(TestCase):
     def test_loadjson(self):
         with open ("testout.json", "r") as myfile:
             data=myfile.read()
-        json = qicinga.read_json(data)
+        json = qicinga2.read_json(data)
         return json
 
     def test_parsechecks(self):
         json = self.test_loadjson()
         opts = FakeOptions()
-        qicinga.parse_checks(json, opts)
+        qicinga2.parse_checks(json, opts)
