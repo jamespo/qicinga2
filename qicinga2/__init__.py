@@ -6,8 +6,9 @@
 
 # from urlparse import urlparse
 from urllib.request import HTTPPasswordMgrWithDefaultRealm, \
-    build_opener, HTTPBasicAuthHandler
+    build_opener, HTTPBasicAuthHandler, HTTPSHandler
 import certifi
+import base64
 import urllib.error
 import configparser
 import os.path
@@ -39,29 +40,27 @@ def get_page(ic_url, user, pw, hostname, cafile, verify_ssl):   # TODO: ignore h
     '''reads icinga service status page from API and returns json'''
     url = ic_url + 'v1/objects/services'
     logger.debug('url: ' + url)
-    # authenticate
-    passman = HTTPPasswordMgrWithDefaultRealm()
-    passman.add_password(None, ic_url, user, pw)
 
     if verify_ssl:
-        opener = build_opener(HTTPBasicAuthHandler(passman))
+        opener = build_opener()
     else:
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
-        https_handler = urllib.request.HTTPSHandler(context=ctx)
-        opener = build_opener(HTTPBasicAuthHandler(passman), https_handler)
+        https_handler = HTTPSHandler(context=ctx)
+        opener = build_opener(https_handler)
 
+    b64auth = base64.standard_b64encode(('%s:%s' % (user, pw)).encode()).decode()
     opener.addheaders = [('User-agent', 'qicinga2'), ('Accept', 'application/json'),
-                         ('X-HTTP-Method-Override', 'GET')]
-    postdata = '{ "attrs": [ "__name", "last_check_result" ] }'
+                         ('Authorization', 'Basic %s' % b64auth)]
+
     # setup TLS trust
     if cafile != '':
         cafile = os.path.expanduser(cafile)
         context = ssl.create_default_context(cafile=cafile)
     else:
         context = ssl.create_default_context(cafile=certifi.where())
-    resp = opener.open(url, data=postdata.encode("utf-8"))
+    resp = opener.open(url)
     data = resp.read()
     return data
 
