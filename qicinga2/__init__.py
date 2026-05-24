@@ -35,14 +35,23 @@ colmap = {      # shell escape codes
 }
 
 
-def get_page(ic_url, user, pw, hostname, cafile):   # TODO: ignore hostname for now
+def get_page(ic_url, user, pw, hostname, cafile, verify_ssl):   # TODO: ignore hostname for now
     '''reads icinga service status page from API and returns json'''
     url = ic_url + 'v1/objects/services'
     logger.debug('url: ' + url)
     # authenticate
     passman = HTTPPasswordMgrWithDefaultRealm()
     passman.add_password(None, ic_url, user, pw)
-    opener = build_opener(HTTPBasicAuthHandler(passman))
+
+    if verify_ssl:
+        opener = build_opener(HTTPBasicAuthHandler(passman))
+    else:
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        https_handler = urllib.request.HTTPSHandler(context=ctx)
+        opener = build_opener(HTTPBasicAuthHandler(passman), https_handler)
+
     opener.addheaders = [('User-agent', 'qicinga2'), ('Accept', 'application/json'),
                          ('X-HTTP-Method-Override', 'GET')]
     postdata = '{ "attrs": [ "__name", "last_check_result" ] }'
@@ -152,8 +161,8 @@ def readconf(iserver):
     config[iserver] = {'cafile': ''}
     config.read(['/etc/qicinga2', os.path.expanduser('~/.config/.qicinga2')])
     return (config.get(iserver, 'icinga_url'), config.get(iserver, 'username'),
-            config.get(iserver, 'password'),
-            config.get(iserver, 'cafile'))
+            config.get(iserver, 'password'), config.get(iserver, 'cafile'),
+            config.getboolean(iserver, 'verify_ssl', fallback=True))
 
 
 def get_options():
@@ -196,13 +205,13 @@ def main():
     logger.setLevel(logging.INFO)
     opts = get_options()
     try:
-        icinga_url, username, password, cafile = readconf(
+        icinga_url, username, password, cafile, verify_ssl = readconf(
             opts.iserver)
     except configparser.NoOptionError:
         die("Unknown server %s not found in conf" % opts.iserver)
     try:
         data = get_page(icinga_url, username, password,
-                        opts.hostname, cafile)
+                        opts.hostname, cafile, verify_ssl)
     except urllib.error.URLError as e:
         die(e)
     try:
