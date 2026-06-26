@@ -12,6 +12,10 @@ or
     
     pip install git+https://github.com/jamespo/qicinga2.git
 
+or
+
+	uv tool install git+https://github.com/jamespo/qicinga2.git
+
 Configuration
 -------------
 
